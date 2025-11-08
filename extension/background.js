@@ -1,30 +1,36 @@
+let state = 'idle'; // 'idle', 'scraping'
+let urlsToScrape = [];
+let currentUrlIndex = 0;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'startScraping') {
-    startScraping(request.urls);
+  if (request.action === 'startScraping' && state === 'idle') {
+    state = 'scraping';
+    urlsToScrape = request.urls;
+    currentUrlIndex = 0;
+    scrapeNext();
   } else if (request.action === 'scrapedData') {
     sendDataToApi(request.data);
+    setTimeout(() => {
+      chrome.tabs.remove(sender.tab.id);
+      scrapeNext();
+    }, 10000); // 10 second delay
   }
 });
 
-let currentTabIndex = 0;
-let urlsToScrape = [];
-
-function startScraping(urls) {
-  urlsToScrape = urls;
-  currentTabIndex = 0;
-  openNextUrl();
-}
-
-function openNextUrl() {
-  if (currentTabIndex < urlsToScrape.length) {
-    chrome.tabs.create({ url: urlsToScrape[currentTabIndex] }, (tab) => {
+function scrapeNext() {
+  if (currentUrlIndex < urlsToScrape.length) {
+    const url = urlsToScrape[currentUrlIndex];
+    chrome.runtime.sendMessage({ action: 'updateStatus', message: `Scraping ${currentUrlIndex + 1} of ${urlsToScrape.length}: ${url}` });
+    chrome.tabs.create({ url: url }, (tab) => {
       chrome.scripting.executeScript({
         target: { tabId: tab.id },
         files: ['content.js']
       });
     });
-    currentTabIndex++;
+    currentUrlIndex++;
+  } else {
+    state = 'idle';
+    chrome.runtime.sendMessage({ action: 'scrapingDone' });
   }
 }
 
@@ -39,10 +45,14 @@ function sendDataToApi(data) {
   .then(response => response.json())
   .then(data => {
     console.log('Data sent to API:', data);
-    openNextUrl();
   })
   .catch(error => {
     console.error('Error sending data to API:', error);
-    openNextUrl();
   });
 }
+
+// on extension install, reset the scraping status
+chrome.runtime.onInstalled.addListener(() => {
+  state = 'idle';
+  chrome.storage.local.set({ isScraping: false, profileUrls: '', scrapingStatus: '' });
+});

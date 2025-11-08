@@ -1,60 +1,77 @@
 
-// This script is injected into LinkedIn profile pages to scrape data.
-// The selectors used here are placeholders and need to be updated with the correct selectors from a real LinkedIn profile page.
+async function scrapeProfile() {
+  console.log('Scraping profile...');
+  try {
+    const profileData = {
+      name: '',
+      url: window.location.href,
+      about: '',
+      bio: '',
+      location: '',
+      follower_count: '',
+      connection_count: ''
+    };
 
-function scrapeProfile() {
-  const profileData = {
-    name: '',
-    url: window.location.href,
-    about: '',
-    bio: '',
-    location: '',
-    follower_count: '',
-    connection_count: ''
-  };
+    const nameElement = document.querySelector('h1');
+    if (nameElement) {
+      profileData.name = nameElement.innerText;
+      console.log('Name found:', profileData.name);
+    } else {
+      console.log('Name element not found.');
+    }
 
-  // --- UPDATE SELECTORS BELOW ---
-  // Example: profileData.name = document.querySelector('h1').innerText;
+    const bioElement = document.querySelector('.text-body-medium.break-words');
+    if (bioElement) {
+      profileData.bio = bioElement.innerText;
+      console.log('Bio found:', profileData.bio);
+    } else {
+      console.log('Bio element not found.');
+    }
 
-  // Name
-  const nameElement = document.querySelector('.text-heading-xlarge');
-  if (nameElement) {
-    profileData.name = nameElement.innerText;
+    const locationElement = document.querySelector('.text-body-small.inline');
+    if (locationElement) {
+      profileData.location = locationElement.innerText;
+      console.log('Location found:', profileData.location);
+    } else {
+      console.log('Location element not found.');
+    }
+
+    const aboutElement = document.querySelector('.inline-show-more-text p');
+    if (aboutElement) {
+      profileData.about = aboutElement.innerText;
+      console.log('About found:', profileData.about);
+    } else {
+      console.log('About element not found.');
+    }
+
+    const extraInfoElements = document.querySelectorAll('span.t-bold');
+    extraInfoElements.forEach(element => {
+      const text = element.innerText.toLowerCase();
+      if (text.includes('follower')) {
+        profileData.follower_count = text;
+        console.log('Follower count found:', profileData.follower_count);
+      }
+      if (text.includes('connection')) {
+        profileData.connection_count = text;
+        console.log('Connection count found:', profileData.connection_count);
+      }
+    });
+
+    console.log('Scraped data:', profileData);
+    return profileData;
+  } catch (error) {
+    console.error('Error scraping profile:', error);
+    return null;
   }
-
-  // About
-  const aboutElement = document.querySelector('.pv-about-section .pv-entity__description');
-  if (aboutElement) {
-    profileData.about = aboutElement.innerText;
-  }
-
-  // Bio
-  const bioElement = document.querySelector('.text-body-medium');
-  if (bioElement) {
-    profileData.bio = bioElement.innerText;
-  }
-
-  // Location
-  const locationElement = document.querySelector('.text-body-small.inline.t-black--light.break-words');
-  if (locationElement) {
-    profileData.location = locationElement.innerText;
-  }
-
-  // Follower and Connection Count - These are often in the same area, so you might need to adjust selectors
-    const followersElement = document.querySelector('.pvs-header__optional-link.pvs-header__optional-link--followers');
-  if (followersElement) {
-    profileData.follower_count = followersElement.innerText;
-  }
-  
-  const connectionsElement = document.querySelector('.pvs-header__optional-link');
-  if (connectionsElement) {
-    profileData.connection_count = connectionsElement.innerText;
-  }
-
-
-  // --- END OF SELECTOR UPDATES ---
-
-  return profileData;
 }
 
-chrome.runtime.sendMessage({ action: 'scrapedData', data: scrapeProfile() });
+console.log('Content script injected.');
+
+setTimeout(() => {
+  scrapeProfile().then(scrapedData => {
+    if (scrapedData) {
+      console.log('Sending scraped data to background script:', scrapedData);
+      chrome.runtime.sendMessage({ action: 'scrapedData', data: scrapedData });
+    }
+  });
+}, 5000);
